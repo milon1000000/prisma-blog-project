@@ -1,3 +1,4 @@
+import { CommentStatus, PostStatus } from "../../../generated/prisma/enums";
 import { prisma } from "../../lib/prisma";
 import { ICreatePostPayload, IUpdatePostPayload } from "./post.interface";
 
@@ -27,27 +28,80 @@ const getAllPosts = async () => {
 };
 
 const getPostById = async (postId: string) => {
-  const post = await prisma.post.findUniqueOrThrow({
-    where: { id: postId },
-  });
+  // await prisma.post.update({
+  // where: { id: postId },
+  // data: {
+  //   views: {
+  //     increment: 1,
+  //   },
+  // },
+  // });
 
-  const updatePost = await prisma.post.update({
-    where: { id: postId },
-    data: {
-      views: {
-        increment: 1,
-      },
-    },
-    include: {
-      author: {
-        omit: {
-          password: true,
+  // // throw new Error("Fake Error");
+  // const post=await prisma.post.findUniqueOrThrow({
+  // where:{
+  //   id:postId
+  // },
+  // include:{
+  //   author:{
+  //     omit:{
+  //       password:true
+  //     }
+  //   },
+  //   comments:{
+  //     where:{
+  //       status:CommentStatus.APPROVED
+  //     },
+  //       orderBy:{
+  //         createdAt:"desc"
+  //       }
+  //     },
+  //     _count:{
+  //       select:{
+  //         comments:true
+  //       }
+  //     }
+  //   }
+  // })
+  // return post;
+
+  const transactionResult = await prisma.$transaction(async (tx) => {
+    await tx.post.update({
+      where: { id: postId },
+      data: {
+        views: {
+          increment: 1,
         },
       },
-      comments: true,
-    },
+    });
+    const post = await tx.post.findUniqueOrThrow({
+      where: {
+        id: postId,
+      },
+      include: {
+        author: {
+          omit: {
+            password: true,
+          },
+        },
+        comments: {
+          where: {
+            status: CommentStatus.APPROVED,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+        _count: {
+          select: {
+            comments: true,
+          },
+        },
+      },
+    });
+    return post;
   });
-  return updatePost;
+  return transactionResult;
 };
 
 const getMyPosts = async (authorId: string) => {
@@ -80,7 +134,7 @@ const updatePost = async (
   postId: string,
   payload: IUpdatePostPayload,
   authorId: string,
-  isAdmin: boolean
+  isAdmin: boolean,
 ) => {
   const post = await prisma.post.findFirstOrThrow({
     where: {
@@ -112,31 +166,101 @@ const updatePost = async (
   return result;
 };
 
-const deletePost=async(postId:string,authorId:string,isAdmin:boolean)=>{
-    const post=await prisma.post.findUniqueOrThrow({
-        where:{
-            id:postId
-        }
-    })
-    
+const deletePost = async (
+  postId: string,
+  authorId: string,
+  isAdmin: boolean,
+) => {
+  const post = await prisma.post.findUniqueOrThrow({
+    where: {
+      id: postId,
+    },
+  });
 
-    if (!isAdmin && post.authorId !== authorId) {
+  if (!isAdmin && post.authorId !== authorId) {
     throw new Error("You are not the owner of this post");
   }
 
   await prisma.post.delete({
-    where:{
-        id:postId
-    }
+    where: {
+      id: postId,
+    },
+  });
+};
+
+const getPostsStats = async () => {
+  const transactionResult = await prisma.$transaction(async (tx) => {
+    const [
+      totalPosts,
+      totalPublishedPost,
+      totalDraftPosts,
+      totalArchivedPost,
+      totalComments,
+      totalApprovedComments,
+      totalRejectComments,
+      totalPostViews,
+    ] = await Promise.all([
+      tx.post.count(),
+
+      tx.post.count({
+        where: {
+          status: PostStatus.PUBLISHED,
+        },
+      }),
+
+      tx.post.count({
+        where: {
+          status: PostStatus.DRAFT,
+        },
+      }),
+
+      tx.post.count({
+        where: {
+          status: PostStatus.ARCHIVED,
+        },
+      }),
+
+      tx.comment.count(),
+
+      tx.comment.count({
+        where: {
+          status: CommentStatus.APPROVED,
+        },
+      }),
+
+      tx.comment.count({
+        where: {
+          status: CommentStatus.REJECT,
+        },
+      }),
+
+      tx.post.aggregate({
+        _sum: {
+          views: true,
+        },
+      }),
+    ]);
+
+    return {
+      totalPosts,
+      totalPublishedPost,
+      totalDraftPosts,
+      totalArchivedPost,
+      totalComments,
+      totalApprovedComments,
+      totalRejectComments,
+      totalPostViews: totalPostViews._sum.views ?? 0,
+    };
   });
 
-}
-
+  return transactionResult;
+};
 export const postService = {
   createPost,
   getAllPosts,
   getPostById,
   getMyPosts,
   updatePost,
-  deletePost
+  deletePost,
+  getPostsStats,
 };
