@@ -1,3 +1,5 @@
+import { Or } from "./../../../generated/prisma/internal/prismaNamespace";
+import { title } from "node:process";
 import { CommentStatus, PostStatus } from "../../../generated/prisma/enums";
 import { prisma } from "../../lib/prisma";
 import { ICreatePostPayload, IUpdatePostPayload } from "./post.interface";
@@ -14,6 +16,83 @@ const createPost = async (payload: ICreatePostPayload, userId: string) => {
 
 const getAllPosts = async () => {
   const posts = await prisma.post.findMany({
+    //filter
+    // where:{
+    //  title:"My First Post",
+    //  content:"Rolando"
+    // },
+
+    //filter AND
+
+    //   where:{
+    //  AND:[
+    //   {
+    //     title:"My First Post"
+    //   },{
+    //     content:"Rolando"
+    //   }
+    //  ]
+    //   },
+
+    // searching || partial match
+    // where:{
+    //   title:{
+    //     contains:"rolando",
+    //     mode:"insensitive"
+    //   },
+    //   content:{
+    //     contains:"rolando",
+    //     mode:"insensitive"
+    //   }
+    // },
+
+    // where: {
+    //   OR: [
+    //      {
+    //      title:{
+    //       contains:"rolando",
+    //       mode:"insensitive"
+    //      }
+    //      },
+    //      {
+    //       content:{
+    //         contains:"RolanDo",
+    //         mode:"insensitive"
+    //       }
+    //      }
+    //   ],
+    // },
+
+    // combinign search(OR operator) and filtering (AND operator)
+  //   where:{
+  //  AND:[
+  //   {
+  //     OR:[
+  //       {
+  //         title:{
+  //           contains:"Ronlando",
+  //           mode:"insensitive"
+  //         }
+  //       },
+  //       {
+  //         content:{
+  //           contains:"Ronlando",
+  //           mode:"insensitive"
+  //         }
+  //       }
+  //     ]
+  //   },
+  //   {
+  //     title:"Rolando"
+  //   },
+  //   {
+  //     content:"Rolando"
+  //   }
+  //  ]
+   
+  //   },
+  take:1,
+  skip:0,
     include: {
       author: {
         omit: {
