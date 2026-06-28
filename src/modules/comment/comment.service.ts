@@ -10,8 +10,7 @@ const createComment=async(payload:ICreateCommentPayload,authorId:string)=>{
  });
  const result=await prisma.comment.create({
     data:{
-     content:payload.content,
-      postId:payload.postId,
+      ...payload,
       authorId
     }
  });
